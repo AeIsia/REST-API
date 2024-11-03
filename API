@@ -1,0 +1,41 @@
+<?php
+header("Content-Type: application/json");
+include("connect.php");
+
+// Get the HTTP method
+$method = $_SERVER['REQUEST_METHOD'];
+
+if ($method === 'POST') {
+    // Get the posted data
+    $data = json_decode(file_get_contents('php://input'), true);
+    $email = $data['lgmail'] ?? '';
+    $pass = $data['lpass'] ?? '';
+
+    // Prepare the SQL statement
+    $sql = "SELECT * FROM userinfo WHERE email = ? OR username = ?";
+    $stmt = $connect->prepare($sql);
+    $stmt->bind_param("ss", $email, $email);
+    $stmt->execute();
+    $output = $stmt->get_result();
+
+    if ($output->num_rows > 0) {
+        $user = $output->fetch_assoc();
+        if (password_verify($pass, $user['pass'])) {
+            session_start();
+            $_SESSION["userid"] = $user['UIID'];
+            $_SESSION["username"] = $user['fname'] . " " . $user['lname'];
+            echo json_encode(["alert" => "0", "message" => "Login successful"]);
+        } else {
+            echo json_encode(["alert" => "1", "message" => "Invalid password"]);
+        }
+    } else {
+        echo json_encode(["alert" => "1", "message" => "User not found"]);
+    }
+
+    $stmt->close();
+} else {
+    // Method not allowed
+    http_response_code(405);
+    echo json_encode(["message" => "Method not allowed"]);
+}
+?>
